@@ -29,7 +29,7 @@ class CNN(L.LightningModule):
         fm2=32,
         max_val=100.0,
         ramp_up_mult=-5.0,
-        k=100,
+        n_labeled=100,
         n_samples=60000,
         n_classes=10,
         lr=0.002,
@@ -55,6 +55,7 @@ class CNN(L.LightningModule):
         self.lr = lr
         self.batch_size = batch_size
         self.alpha = alpha
+        self.n_labeled = n_labeled
 
         train_dataset, test_dataset = prepare_mnist()
         ntrain = len(train_dataset)
@@ -100,7 +101,7 @@ class CNN(L.LightningModule):
             self.max_epochs,
             self.max_val,
             self.ramp_up_mult,
-            self.n_classes,
+            self.n_labeled,
             self.n_samples,
         )
 
@@ -256,12 +257,18 @@ for i in trange(cfg["n_seed_restarts"], desc="Seed restart"):
 
     # make data loaders
     n_classes = 10
-    k = 100
+    n_labeled = cfg["n_labeled"]
     batch_size = 100
     train_dataset, test_dataset = prepare_mnist()
 
     train_loader, test_loader, indices = sample_train(
-        train_dataset, test_dataset, batch_size, k, n_classes, seed, shuffle_train=True
+        train_dataset,
+        test_dataset,
+        batch_size,
+        n_labeled,
+        n_classes,
+        seed,
+        shuffle_train=True,
     )
 
     trainer = L.Trainer(max_epochs=num_epochs)

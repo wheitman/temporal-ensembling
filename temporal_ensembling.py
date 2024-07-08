@@ -12,7 +12,7 @@ def sample_train(
     train_dataset,
     test_dataset,
     batch_size,
-    k,
+    n_labeled,
     n_classes,
     seed,
     shuffle_train=True,
@@ -23,9 +23,9 @@ def sample_train(
     rrng = np.random.RandomState(seed)
 
     cpt = 0
-    indices = torch.zeros(k)
-    other = torch.zeros(n - k)
-    card = k // n_classes
+    indices = torch.zeros(n_labeled)
+    other = torch.zeros(n - n_labeled)
+    card = n_labeled // n_classes
 
     for i in range(n_classes):
         class_items = (train_dataset.targets == i).nonzero()
@@ -51,11 +51,11 @@ def sample_train(
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=batch_size,
-        num_workers=19,
+        num_workers=4,
         shuffle=shuffle_train,
     )
     test_loader = torch.utils.data.DataLoader(
-        dataset=test_dataset, batch_size=batch_size, num_workers=19, shuffle=False
+        dataset=test_dataset, batch_size=batch_size, num_workers=4, shuffle=False
     )
 
     if return_idxs:
