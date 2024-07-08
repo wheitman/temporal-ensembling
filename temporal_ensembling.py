@@ -51,11 +51,11 @@ def sample_train(
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=batch_size,
-        num_workers=4,
+        num_workers=19,
         shuffle=shuffle_train,
     )
     test_loader = torch.utils.data.DataLoader(
-        dataset=test_dataset, batch_size=batch_size, num_workers=4, shuffle=False
+        dataset=test_dataset, batch_size=batch_size, num_workers=19, shuffle=False
     )
 
     if return_idxs:
@@ -156,6 +156,8 @@ def train(
         supl = []
         unsupl = []
         for i, (images, labels) in enumerate(train_loader):
+
+            # Hm... Do we need this?
             images = Variable(images.cuda())
             labels = Variable(labels.cuda(), requires_grad=False)
 

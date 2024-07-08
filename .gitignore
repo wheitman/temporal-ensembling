@@ -4,3 +4,4 @@ venv*
 __pycache__/
 exps/
 *.tar
+lightning_logs/
