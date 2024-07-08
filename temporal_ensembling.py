@@ -5,6 +5,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 from utils import calc_metrics, prepare_mnist, weight_schedule
+from tqdm import trange
 
 
 def sample_train(
@@ -26,16 +27,26 @@ def sample_train(
     other = torch.zeros(n - k)
     card = k // n_classes
 
-    for i in xrange(n_classes):
-        class_items = (train_dataset.train_labels == i).nonzero()
-        n_class = len(class_items)
-        rd = np.random.permutation(np.arange(n_class))
-        indices[i * card : (i + 1) * card] = class_items[rd[:card]]
-        other[cpt : cpt + n_class - card] = class_items[rd[card:]]
-        cpt += n_class - card
+    for i in range(n_classes):
+        class_items = (train_dataset.targets == i).nonzero()
+
+        # print(f"Class items:\n {class_items}")
+        # print(f"Card: {card}")
+
+        n_samples_in_class = len(class_items)
+        rd = np.random.permutation(np.arange(n_samples_in_class))
+
+        # print(f"Indices shape: {indices.shape}")
+        # print(f"class_items shape: {class_items.shape}")
+        # print(f"rd shape: {rd.shape}")
+
+        # indices[0:10] = class_items[5923[:10]]
+        indices[i * card : (i + 1) * card] = class_items[rd[:card]].squeeze()
+        other[cpt : cpt + n_samples_in_class - card] = class_items[rd[card:]].squeeze()
+        cpt += n_samples_in_class - card
 
     other = other.long()
-    train_dataset.train_labels[other] = -1
+    train_dataset.targets[other] = -1
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -129,14 +140,14 @@ def train(
     z = torch.zeros(ntrain, n_classes).float().cuda()  # temporal outputs
     outputs = torch.zeros(ntrain, n_classes).float().cuda()  # current outputs
 
-    for epoch in range(num_epochs):
+    for epoch in trange(num_epochs, desc="Epoch"):
         t = timer()
 
         # evaluate unsupervised cost weight
         w = weight_schedule(epoch, max_epochs, max_val, ramp_up_mult, k, n_samples)
 
         if (epoch + 1) % 10 == 0:
-            print("unsupervised loss weight : {}").format(w)
+            print(f"unsupervised loss weight : {w}")
 
         # turn it into a usable pytorch object
         w = torch.autograd.Variable(torch.FloatTensor([w]).cuda(), requires_grad=False)
@@ -154,13 +165,15 @@ def train(
             zcomp = Variable(
                 z[i * batch_size : (i + 1) * batch_size], requires_grad=False
             )
-            loss, suploss, unsuploss, nbsup = temporal_loss(out, zcomp, w, labels)
+            loss, supervised_loss, unsupervised_loss, nbsup = temporal_loss(
+                out, zcomp, w, labels
+            )
 
             # save outputs and losses
             outputs[i * batch_size : (i + 1) * batch_size] = out.data.clone()
-            l.append(loss.data[0])
-            supl.append(nbsup * suploss.data[0])
-            unsupl.append(unsuploss.data[0])
+            l.append(loss.item())
+            supl.append(nbsup * supervised_loss.item())
+            unsupl.append(unsupervised_loss.item())
 
             # backprop
             loss.backward()
@@ -170,26 +183,11 @@ def train(
             if (epoch + 1) % 10 == 0:
                 if i + 1 == 2 * c:
                     print(
-                        "Epoch [%d/%d], Step [%d/%d], Loss: %.6f, Time (this epoch): %.2f s"
-                        % (
-                            epoch + 1,
-                            num_epochs,
-                            i + 1,
-                            len(train_dataset) // batch_size,
-                            np.mean(l),
-                            timer() - t,
-                        )
+                        f"Epoch [{epoch+1}/{num_epochs}], Step [{i + 1}/{len(train_dataset) // batch_size}], Loss: {np.mean(l):.6f}, Time (this epoch): {timer() - t} s"
                     )
                 elif (i + 1) % c == 0:
                     print(
-                        "Epoch [%d/%d], Step [%d/%d], Loss: %.6f"
-                        % (
-                            epoch + 1,
-                            num_epochs,
-                            i + 1,
-                            len(train_dataset) // batch_size,
-                            np.mean(l),
-                        )
+                        f"Epoch [{epoch+1}/{num_epochs}], Step [{i + 1}/{len(train_dataset) // batch_size}], Loss: {np.mean(l):.6f}"
                     )
 
         # update temporal ensemble
